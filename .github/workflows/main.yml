@@ -26,32 +26,53 @@ jobs:
           mkdir -p extracted
           unzip -o PrincePro_v1.0_complete.zip -d extracted
 
-          echo "Searching for Flutter project..."
-
           PROJECT_DIR=$(find extracted -name pubspec.yaml -type f -print -quit | xargs dirname)
 
           if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: pubspec.yaml was not found."
-            find extracted -maxdepth 5 -type f | head -100
+            echo "ERROR: pubspec.yaml not found"
             exit 1
           fi
 
-          echo "Flutter project found at:"
-          echo "$PROJECT_DIR"
-
+          echo "Found PrincePro at: $PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+      - name: Create fresh Android project
+        run: |
+          mkdir princepro_build
+
+          flutter create \
+            --platforms=android \
+            --project-name princepro \
+            princepro_build
+
+          echo "Fresh Flutter Android project created."
+
+      - name: Copy PrincePro source
+        run: |
+          rm -rf princepro_build/lib
+          cp -r "$PROJECT_DIR/lib" princepro_build/lib
+
+          if [ -d "$PROJECT_DIR/assets" ]; then
+            cp -r "$PROJECT_DIR/assets" princepro_build/assets
+          fi
+
+          cp "$PROJECT_DIR/pubspec.yaml" princepro_build/pubspec.yaml
+
+          if [ -f "$PROJECT_DIR/analysis_options.yaml" ]; then
+            cp "$PROJECT_DIR/analysis_options.yaml" princepro_build/analysis_options.yaml
+          fi
+
       - name: Get dependencies
-        working-directory: ${{ env.PROJECT_DIR }}
+        working-directory: princepro_build
         run: flutter pub get
 
       - name: Build release APK
-        working-directory: ${{ env.PROJECT_DIR }}
+        working-directory: princepro_build
         run: flutter build apk --release
 
       - name: Upload PrincePro APK
         uses: actions/upload-artifact@v4
         with:
           name: PrincePro-APK
-          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          path: princepro_build/build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
